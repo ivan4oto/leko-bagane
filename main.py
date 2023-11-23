@@ -9,15 +9,31 @@ from pygments.formatters import HtmlFormatter
 
 from fastapi import FastAPI, Query, Response
 from fastapi.responses import RedirectResponse
+from tortoise.contrib.fastapi import register_tortoise
+import db_config
 
 from activity_services.update_activity import update_activity
+from models.strava_wh_event import StravaWhEvent, StravaWhEventIn
+
+from views.events_view import router as events_router
 
 app = FastAPI()
+
+app.include_router(router=events_router)
+
+register_tortoise(
+    app,
+    config=db_config.TORTOISE_ORM,
+    generate_schemas=True,
+    add_exception_handlers=True,
+)
+
 
 load_dotenv()
 
 STRAVA_CLIENT_ID = os.getenv('STRAVA_CLIENT_ID')
 STRAVA_CLIENT_SECRET = os.getenv('STRAVA_CLIENT_SECRET')
+CALLBACK_URL = os.getenv('CALLBACK_URL')
 
 
 @app.get("/login")
@@ -26,8 +42,19 @@ def read_root():
         url=f"http://www.strava.com/oauth/authorize?client_id={STRAVA_CLIENT_ID}&response_type=code&redirect_uri=http://127.0.0.1:8000/exchange_token&approval_prompt=force&scope=activity:write,activity:read_all,read"
         )
 
+@app.post("/wh")
+async def webhook_root(event: StravaWhEventIn):
+    event_obj = StravaWhEvent(**event.model_dump())
+    await event_obj.save()
+    return event_obj
 
 
+@app.get("/webhook_init")
+def trigger_webhook():
+    client_id = ""
+    STRAVA_CLIENT_SECRET
+    callback_url = CALLBACK_URL
+    verify_token = "nqkyv string"
 
 
 @app.get("/exchange_token")

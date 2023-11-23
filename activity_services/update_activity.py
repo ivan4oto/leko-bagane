@@ -1,6 +1,15 @@
 import requests
 from http import HTTPStatus
+from models.athlete_activity import AthleteActivity
+from tortoise.transactions import in_transaction
 
+
+
+async def create_item(name: str, description: str):
+    async with in_transaction() as connection:
+        item = AthleteActivity(name=name, description=description)
+        await item.save(using_db=connection)
+        return item
 
 updatable_activity = {
     "description": None,

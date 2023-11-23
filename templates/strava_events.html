@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Strava Events</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>Strava Events</h1>
+    <table>
+        <tr>
+            <th>Aspect Type</th>
+            <th>Event Time</th>
+            <th>Object ID</th>
+            <th>Object Type</th>
+            <th>Owner ID</th>
+            <th>Subscription ID</th>
+            <th>Updates</th>
+        </tr>
+        {% for event in events %}
+        <tr>
+            <td>{{ event.aspect_type }}</td>
+            <td>{{ event.event_time }}</td>
+            <td>{{ event.object_id }}</td>
+            <td>{{ event.object_type }}</td>
+            <td>{{ event.owner_id }}</td>
+            <td>{{ event.subscription_id }}</td>
+            <td>{{ event.updates }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
