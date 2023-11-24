@@ -16,9 +16,11 @@ from activity_services.update_activity import update_activity
 from models.strava_wh_event import StravaWhEvent, StravaWhEventIn
 
 from views.events_view import router as events_router
+from views.general_views import router as general_view
 
 app = FastAPI()
 
+app.include_router(router=general_view)
 app.include_router(router=events_router)
 
 register_tortoise(
