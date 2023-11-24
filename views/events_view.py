@@ -14,4 +14,3 @@ StravaWhEvent_Pydantic = pydantic_model_creator(StravaWhEvent, name="StravaWhEve
 async def get_strava_events(request: Request):
     events = await StravaWhEvent_Pydantic.from_queryset(StravaWhEvent.all())
     return templates.TemplateResponse("strava_events.html", {"request": request, "events": events})
-

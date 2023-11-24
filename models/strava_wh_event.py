@@ -5,11 +5,11 @@ from pydantic import BaseModel
 
 class StravaWhEvent(Model):
     aspect_type = fields.CharField(50)
-    event_time = fields.IntField()
-    object_id = fields.IntField()
+    event_time = fields.BigIntField()
+    object_id = fields.BigIntField()
     object_type = fields.CharField(50)
-    owner_id = fields.IntField()
-    subscription_id = fields.IntField()
+    owner_id = fields.BigIntField()
+    subscription_id = fields.BigIntField()
     updates = fields.JSONField()
 
 

@@ -14,6 +14,7 @@ import db_config
 
 from activity_services.update_activity import update_activity
 from models.strava_wh_event import StravaWhEvent, StravaWhEventIn
+from models.webhook_validator import WebhookValidator
 
 from views.events_view import router as events_router
 from views.general_views import router as general_view
@@ -50,13 +51,39 @@ async def webhook_root(event: StravaWhEventIn):
     await event_obj.save()
     return event_obj
 
+@app.get("/wh")
+async def webhook_root(
+    hub_mode: str = Query(..., alias="hub.mode"),
+    hub_challenge: str = Query(..., alias="hub.challenge"),
+    hub_verify_token: str = Query(..., alias="hub.verify_token")
+):
+    event = WebhookValidator(
+        hub_mode=hub_mode, 
+        hub_challenge=hub_challenge, 
+        hub_verify_token=hub_verify_token
+    )
+    await event.save()
+    
+    return {"hub.challenge": hub_challenge}
+
 
 @app.get("/webhook_init")
 def trigger_webhook():
-    client_id = ""
-    STRAVA_CLIENT_SECRET
+    client_id = STRAVA_CLIENT_ID
+    client_secret = STRAVA_CLIENT_SECRET
     callback_url = CALLBACK_URL
-    verify_token = "nqkyv string"
+    verify_token = "nqkavstringbate"
+
+    url = "https://www.strava.com/api/v3/push_subscriptions"
+    payload = {
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'callback_url': callback_url,
+        'verify_token': verify_token
+    }
+
+    response = requests.post(url, data=payload)
+    return response.json()
 
 
 @app.get("/exchange_token")
