@@ -1,20 +1,27 @@
+from datetime import datetime
 import json
 import os
 from dotenv import load_dotenv
 from pygments import highlight
+import redis
 import requests
 from typing import Union
 from pygments.lexers.data import JsonLexer
 from pygments.formatters import HtmlFormatter
 
-from fastapi import FastAPI, Query, Response
+from fastapi import Depends, FastAPI, Query, Response
 from fastapi.responses import RedirectResponse
 from tortoise.contrib.fastapi import register_tortoise
 import db_config
 
 from activity_services.update_activity import update_activity
+from dependencies import get_redis
+from models.athlete import Athlete, get_athlete_by_id
+from models.athlete_activity import AthleteActivity
 from models.strava_wh_event import StravaWhEvent, StravaWhEventIn
+from models.tokens import RefreshToken
 from models.webhook_validator import WebhookValidator
+from services.cache_service import CacheService
 
 from views.events_view import router as events_router
 from views.general_views import router as general_view
@@ -39,6 +46,31 @@ STRAVA_CLIENT_SECRET = os.getenv('STRAVA_CLIENT_SECRET')
 CALLBACK_URL = os.getenv('CALLBACK_URL')
 
 
+
+def get_cache_service(redis: redis.Redis = Depends(get_redis)):
+    return CacheService(redis)
+
+
+
+
+async def handle_event(event: StravaWhEvent):
+    if event.aspect_type == 'create' and event.object_type == 'activity':
+        activity = await AthleteActivity.filter(activity_id = event.object_id).first()
+        if activity is None:
+            await AthleteActivity.create(
+                activity_id=event.object_id,
+                athlete_id = event.owner_id,
+                name = "",
+                description = ""
+                )
+
+        # result = get_strava_activity(id=event.object_id)
+        await update_activity(event.owner_id, event.object_id, name='UPDATED NAME', description='UPDATED DESCRIPTION')
+        # return result
+        
+
+
+
 @app.get("/login")
 def read_root():
     return RedirectResponse(
@@ -48,6 +80,9 @@ def read_root():
 @app.post("/wh")
 async def webhook_root(event: StravaWhEventIn):
     event_obj = StravaWhEvent(**event.model_dump())
+    await handle_event(event)
+
+
     await event_obj.save()
     return event_obj
 
@@ -87,7 +122,12 @@ def trigger_webhook():
 
 
 @app.get("/exchange_token")
-def exchange_token(state: str = Query(None), code: str = Query(None), scope: str = Query(None)):
+async def exchange_token(
+    state: str = Query(None),
+    code: str = Query(None),
+    scope: str = Query(None),
+    cache_service: CacheService = Depends(get_cache_service)
+    ):
     # You can use the state, code, and scope variables here as needed
     url = "https://www.strava.com/oauth/token"
     data = {
@@ -98,22 +138,51 @@ def exchange_token(state: str = Query(None), code: str = Query(None), scope: str
     }
     response = requests.post(url, data=data)
     parsed_response = json.loads(response.text)
+    print(parsed_response)
     access_token = parsed_response["access_token"]
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
+    
+
+    refresh_token = parsed_response["refresh_token"]
+
+    athlete_id = parsed_response["athlete"]["id"]
+    athlete_first_name = parsed_response["athlete"]["firstname"]
+    athlete_last_name = parsed_response["athlete"]["lastname"]
+    athlete_sex = parsed_response["athlete"]["sex"]
+    athlete_city = parsed_response["athlete"]["city"]
+    
+    # Store access_token in Redis
+    expires_at = parsed_response["expires_at"]
+
+
+    cache_service.store_athlete_access_token(athlete_id, access_token, expires_at) # STORING ACCESS_TOKEN IN REDIS
+
+
+    athlete = await Athlete.filter(athlete_id=athlete_id).first()
+    if athlete is None:
+        athlete = await Athlete.create(
+            athlete_id = athlete_id,
+            first_name = athlete_first_name,
+            last_name = athlete_last_name,
+            sex = athlete_sex,
+            city = athlete_city
+        )
+
+    expires_at_datetime = datetime.utcfromtimestamp(expires_at)
+    await RefreshToken.create(token=refresh_token, athlete=athlete, expires=expires_at_datetime)
+
+
+    # headers = {
+    #     "Authorization": f"Bearer {access_token}"
+    # }
 
     # response = get_strava_activity(headers, '10256064515')
     # response = get_strava_activities(headers=headers)
-    response = update_activity(headers, '4592416914', 'Леко Багане Тест')
-    data = response.json()
-
     # Dump it back into a string with indentation
-    json_string = json.dumps(data, indent=4, sort_keys=True, ensure_ascii=False)
+    # json_string = json.dumps(data, indent=4, sort_keys=True, ensure_ascii=False)
 
 
-    formatted_html = highlight(json_string, JsonLexer(), HtmlFormatter(full=True, style='colorful'))
-    return Response(content=formatted_html, media_type="text/html") 
+    # formatted_html = highlight(json_string, JsonLexer(), HtmlFormatter(full=True, style='colorful'))
+    return RedirectResponse(url="/") 
 
 def get_strava_activity(headers, id):
     url = f"https://www.strava.com/api/v3/activities/{id}?include_all_efforts=false"
@@ -149,3 +218,7 @@ def get_strava_activities(headers, before=None, after=None, page=None, per_page=
 
     return response
 
+def get_headers(token: str):
+    return  {
+        "Authorization": f"Bearer {token}"
+    }
