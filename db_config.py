@@ -7,6 +7,7 @@ TORTOISE_ORM = {
                 "models.athlete_activity",
                 "models.strava_wh_event",
                 "models.webhook_validator",
+                "models.tokens"
                 ],
             "default_connection": "default",
         },
