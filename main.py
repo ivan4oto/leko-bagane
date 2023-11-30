@@ -2,21 +2,17 @@ from datetime import datetime
 import json
 import os
 from dotenv import load_dotenv
-from pygments import highlight
 import redis
 import requests
-from typing import Union
-from pygments.lexers.data import JsonLexer
-from pygments.formatters import HtmlFormatter
 
-from fastapi import Depends, FastAPI, Query, Response
+from fastapi import Depends, FastAPI, Query
 from fastapi.responses import RedirectResponse
 from tortoise.contrib.fastapi import register_tortoise
 import db_config
 
 from activity_services.update_activity import update_activity
 from dependencies import get_redis
-from models.athlete import Athlete, get_athlete_by_id
+from models.athlete import Athlete
 from models.athlete_activity import AthleteActivity
 from models.strava_wh_event import StravaWhEvent, StravaWhEventIn
 from models.tokens import RefreshToken
@@ -49,8 +45,6 @@ CALLBACK_URL = os.getenv('CALLBACK_URL')
 
 def get_cache_service(redis: redis.Redis = Depends(get_redis)):
     return CacheService(redis)
-
-
 
 
 async def handle_event(event: StravaWhEvent):
@@ -128,7 +122,6 @@ async def exchange_token(
     scope: str = Query(None),
     cache_service: CacheService = Depends(get_cache_service)
     ):
-    # You can use the state, code, and scope variables here as needed
     url = "https://www.strava.com/oauth/token"
     data = {
         "client_id": STRAVA_CLIENT_ID,
@@ -170,25 +163,15 @@ async def exchange_token(
     expires_at_datetime = datetime.utcfromtimestamp(expires_at)
     await RefreshToken.create(token=refresh_token, athlete=athlete, expires=expires_at_datetime)
 
-
-    # headers = {
-    #     "Authorization": f"Bearer {access_token}"
-    # }
-
-    # response = get_strava_activity(headers, '10256064515')
-    # response = get_strava_activities(headers=headers)
-    # Dump it back into a string with indentation
-    # json_string = json.dumps(data, indent=4, sort_keys=True, ensure_ascii=False)
-
-
-    # formatted_html = highlight(json_string, JsonLexer(), HtmlFormatter(full=True, style='colorful'))
     return RedirectResponse(url="/") 
+
 
 def get_strava_activity(headers, id):
     url = f"https://www.strava.com/api/v3/activities/{id}?include_all_efforts=false"
     response = requests.get(url, headers=headers)
 
     return response
+
 
 def get_strava_activities(headers, before=None, after=None, page=None, per_page=None):
     """
@@ -217,6 +200,7 @@ def get_strava_activities(headers, before=None, after=None, page=None, per_page=
     response = requests.get(url, headers=headers, params=params)
 
     return response
+
 
 def get_headers(token: str):
     return  {
