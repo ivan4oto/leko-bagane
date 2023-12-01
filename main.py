@@ -75,8 +75,6 @@ def read_root():
 async def webhook_root(event: StravaWhEventIn):
     event_obj = StravaWhEvent(**event.model_dump())
     await handle_event(event)
-
-
     await event_obj.save()
     return event_obj
 
