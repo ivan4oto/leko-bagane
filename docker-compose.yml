@@ -1,26 +1,61 @@
 version: '3.8'
 
 services:
-
-  postgres:
-    image: postgres:15.3
-    container_name: postgres
+  web:
+    build:
+      context: .
+      dockerfile: ./compose/local/fastapi/Dockerfile
+    image: leko-bagane_app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
     ports:
-      - "5432:5432"
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+
+  db:
+    image: postgres:14-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
     environment:
       - POSTGRES_DB=lekobagane
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
-    healthcheck:
-      test: "pg_isready -U postgres"
 
   redis:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: "redis-cli ping"
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    image: redis:7-alpine
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./compose/local/fastapi/Dockerfile
+    image: leko-bagane_celery_worker
+    command: /start-celeryworker
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: ./compose/local/fastapi/Dockerfile
+    image: leko-bagane_celery_beat
+    command: /start-celerybeat
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+
+volumes:
+  postgres_data:

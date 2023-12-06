@@ -5,9 +5,11 @@ from dotenv import load_dotenv
 import redis
 import requests
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from tortoise.contrib.fastapi import register_tortoise
+from celery_worker import update_athlete_activity_task
 import db_config
 
 from activity_services.update_activity import update_activity
@@ -59,7 +61,14 @@ async def handle_event(event: StravaWhEvent):
                 )
 
         # result = get_strava_activity(id=event.object_id)
-        await update_activity(event.owner_id, event.object_id, name='UPDATED NAME', description='UPDATED DESCRIPTION')
+        try:
+            update_athlete_activity_task.delay(event.owner_id, event.object_id, name='NOVO IME', description='OPISANIE')
+        except Exception as e:
+            print(str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+        
+
+        # await update_activity(event.owner_id, event.object_id, name='UPDATED NAME', description='UPDATED DESCRIPTION')
         # return result
         
 
@@ -204,3 +213,11 @@ def get_headers(token: str):
     return  {
         "Authorization": f"Bearer {token}"
     }
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

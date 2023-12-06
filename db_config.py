@@ -1,5 +1,5 @@
 TORTOISE_ORM = {
-    "connections": {"default": "postgres://postgres:postgres@localhost:5432/lekobagane"},
+    "connections": {"default": "postgres://postgres:postgres@db/lekobagane"},
     "apps": {
         "models": {
             "models": [
