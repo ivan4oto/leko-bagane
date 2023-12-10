@@ -12,7 +12,6 @@ from tortoise.contrib.fastapi import register_tortoise
 from celery_worker import update_athlete_activity_task
 import db_config
 
-from activity_services.update_activity import update_activity
 from dependencies import get_redis
 from models.athlete import Athlete
 from models.athlete_activity import AthleteActivity
@@ -50,28 +49,19 @@ def get_cache_service(redis: redis.Redis = Depends(get_redis)):
 
 
 async def handle_event(event: StravaWhEvent):
+    print('handle event')
+    print(event.aspect_type)
+    print(event.object_type)
     if event.aspect_type == 'create' and event.object_type == 'activity':
-        activity = await AthleteActivity.filter(activity_id = event.object_id).first()
-        if activity is None:
-            await AthleteActivity.create(
-                activity_id=event.object_id,
-                athlete_id = event.owner_id,
-                name = "",
-                description = ""
-                )
+        activity_id = event.object_id
 
-        # result = get_strava_activity(id=event.object_id)
+
         try:
-            update_athlete_activity_task.delay(event.owner_id, event.object_id, name='NOVO IME', description='OPISANIE')
+            print('delay trigger')
+            update_athlete_activity_task.delay(activity_id, name='NOVO IME', description='OPISANIE')
         except Exception as e:
             print(str(e))
             raise HTTPException(status_code=500, detail=str(e))
-        
-
-        # await update_activity(event.owner_id, event.object_id, name='UPDATED NAME', description='UPDATED DESCRIPTION')
-        # return result
-        
-
 
 
 @app.get("/login")
